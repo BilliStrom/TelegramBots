@@ -1,22 +1,33 @@
 const { Telegraf } = require('telegraf');
 const express = require('express');
+require('dotenv').config();
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
 
-// Настройка вебхука
-app.use(bot.webhookCallback('/api'));
-bot.telegram.setWebhook('https://telegram-bots-eight-rouge.vercel.app/');
+// Проверка токена
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  console.error('❌ Токен бота не найден!');
+  process.exit(1);
+}
 
-// Обработчик команды /start
+// Вебхук
+app.use(bot.webhookCallback('/api'));
+bot.telegram.setWebhook(`https://${process.env.VERCEL_URL}/api`);
+
+// Обработчик /start
 bot.start((ctx) => {
-  ctx.reply('🚀 Бот запущен!');
+  ctx.reply('🤖 Бот работает!');
+});
+
+// Эхо-ответ
+bot.on('text', (ctx) => {
+  ctx.reply(`Вы написали: ${ctx.message.text}`);
 });
 
 // Запуск сервера
 app.listen(3000, () => {
-  console.log('Сервер работает на порту 3000');
+  console.log('Сервер запущен');
 });
 
-// Экспорт для Vercel
 module.exports = app;
