@@ -4,7 +4,14 @@ const { Telegraf } = require('telegraf');
   const Stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
   // Инициализация Firebase
-  admin.initializeApp({ /* ваши настройки Firebase */ });
+  admin.initializeApp({ /* var admin = require("firebase-admin");
+
+var serviceAccount = require("path/to/serviceAccountKey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+ */ });
   const db = admin.firestore();
 
   // Инициализация OpenAI
