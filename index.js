@@ -10,6 +10,9 @@ admin.initializeApp({
 });
 const db = admin.firestore();
 
+app.use(bot.webhookCallback('/api'));
+bot.telegram.setWebhook('https://telegram-bots-eight-rouge.vercel.app/');
+
 // Инициализация OpenAI
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
