@@ -50,8 +50,7 @@ bot.on('text', async (ctx) => {
   }
 
   try {
-    const response = await fetch(
-      'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill',
+    const response = await fetch('https://api-inference.huggingface.co/models/gpt2'),
       {
         method: 'POST',
         headers: {
