@@ -2,7 +2,16 @@ const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios'); // Используем axios вместо fetch
 
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
-const GPT_API = 'https://free-unoficial-gpt4o-mini-api-g70n.onrender.com/chat';
+const GPT_API = 'hey, do you work ?';
+fetch(`https://free-unoficial-gpt4o-mini-api-g70n.onrender.com/chat/?query=${yourRequest}`, {
+  method: 'GET',
+  headers: {
+    'Accept': 'application/json'
+  }
+})
+.then(response => response.json())
+.then(data => console.log(data))
+.catch(error => console.error('Error:', error));
 
 // Хранилище пользователей
 const users = new Map();
