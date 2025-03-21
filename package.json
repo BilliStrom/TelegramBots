@@ -1,7 +1,11 @@
 {
-     "dependencies": {
-       "telegraf": "^4.12.2",
-       "axios": "^1.6.2",
-       "express": "^4.18.2"
-     }
-   }
+  "name": "video-bot",
+  "dependencies": {
+    "telegraf": "^4.12.2",
+    "axios": "^1.6.2",
+    "express": "^4.18.2"
+  },
+  "scripts": {
+    "start": "node bot.js"
+  }
+}
