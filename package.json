@@ -1,6 +1,12 @@
 {
+  "name": "telegram-bot",
+  "version": "1.0.0",
   "dependencies": {
     "telegraf": "^4.12.2",
-    "node-fetch": "^2.3.6"
+    "@tensorflow/tfjs": "^4.17.0",
+    "@tensorflow-models/qna": "^1.0.0"
+  },
+  "scripts": {
+    "start": "node api/bot.js"
   }
 }
