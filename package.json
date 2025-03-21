@@ -1,5 +1,7 @@
+
 {
-         "dependencies": {
-           "telegraf": "^4.12.2"
-         }
-       }
+  "dependencies": {
+    "telegraf": "^4.12.2",
+    "openai": "^4.24.1"
+  }
+}
