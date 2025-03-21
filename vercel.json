@@ -1,27 +1,8 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/bot.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["assets/**"] // Если нужны дополнительные файлы
-      }
-    }
-  ],
+  "builds": [{"src": "bot.js", "use": "@vercel/node"}],
   "routes": [
-    {
-      "src": "/api/webhook",
-      "dest": "/api/bot.js",
-      "methods": ["POST"]
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/bot.js",
-      "methods": ["GET"]
-    }
-  ],
-  "env": {
-    "BOT_TOKEN": "@your-bot-token" // Замените через настройки Vercel
-  }
+    {"src": "/api/bot", "dest": "bot.js", "methods": ["POST"]},
+    {"src": "/(.*)", "dest": "bot.js", "methods": ["GET"]}
+  ]
 }
