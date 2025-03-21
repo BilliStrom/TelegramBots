@@ -1,9 +1,27 @@
 {
-  "rewrites": [{ "source": "/api/bot", "destination": "/api/bot.js" }],
-  "functions": {
-    "api/bot.js": {
-      "memory": 1024,
-      "maxDuration": 20
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/bot.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["assets/**"] // Если нужны дополнительные файлы
+      }
     }
+  ],
+  "routes": [
+    {
+      "src": "/api/webhook",
+      "dest": "/api/bot.js",
+      "methods": ["POST"]
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/bot.js",
+      "methods": ["GET"]
+    }
+  ],
+  "env": {
+    "BOT_TOKEN": "@your-bot-token" // Замените через настройки Vercel
   }
 }
