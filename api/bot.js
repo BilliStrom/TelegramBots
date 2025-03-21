@@ -2,7 +2,7 @@ const { Telegraf, Markup } = require('telegraf');
 const fetch = require('node-fetch');
 
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
-const HF_TOKEN = process.env.HF_API_KEY; // Ваш токен Hugging Face
+const HF_TOKEN = process.env.HF_API_KEY;
 
 // Хранилище пользователей
 const users = new Map();
@@ -38,19 +38,27 @@ bot.hears('💬 Задать вопрос', async (ctx) => {
 bot.hears('🔄 Сбросить счетчик', async (ctx) => {
   const user = initUser(ctx.from.id);
   user.requests = 0;
-  await ctx.reply('Счетчик сброшен! Доступно 15 запросов.');
+  await ctx.reply('✅ Счетчик сброшен! Доступно 15 новых запросов.');
+});
+
+bot.hears('ℹ️ Помощь', async (ctx) => {
+  await ctx.reply('🤖 Бот использует нейросеть для ответов. Лимит - 15 запросов/день.');
 });
 
 bot.on('text', async (ctx) => {
   const user = initUser(ctx.from.id);
   
   if (!user.paid && user.requests >= 15) {
-    await ctx.reply('Лимит исчерпан! Купите подписку.');
+    await ctx.reply('🚫 Лимит исчерпан! Для продолжения купите подписку.');
     return;
   }
 
   try {
-    const response = await fetch('https://api-inference.huggingface.co/models/ai-forever/rugpt3small_based_on_gpt2',
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
+
+    const response = await fetch(
+      'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill',
       {
         method: 'POST',
         headers: {
@@ -58,32 +66,37 @@ bot.on('text', async (ctx) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-       inputs: "Ваш запрос",
-       parameters: {
-         max_length: 50,  // Уменьшите длину ответа
-         temperature: 0.7,
-         wait_for_model: true // Добавьте это
-       }
-     })
+          inputs: ctx.message.text,
+          parameters: {
+            max_length: 40,
+            temperature: 0.7,
+            repetition_penalty: 1.5,
+            wait_for_model: true
+          }
+        }),
+        signal: controller.signal
       }
     );
 
-    const data = await response.json();
-    
-    if (data.error) {
-      await ctx.reply('Ошибка: ' + data.error);
-      return;
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const error = await response.json();
+      return await ctx.reply(`❌ Ошибка API: ${error.error || response.statusText}`);
     }
 
+    const data = await response.json();
     user.requests++;
-    await ctx.reply(data.generated_text || 'Не удалось получить ответ');
+    
+    await ctx.reply(data.generated_text || '🤷 Не удалось сгенерировать ответ');
     
     if (!user.paid) {
-      await ctx.reply(`Осталось запросов: ${15 - user.requests}`);
+      await ctx.reply(`📊 Осталось бесплатных запросов: ${15 - user.requests}`);
     }
+
   } catch (error) {
     console.error(error);
-    await ctx.reply('Произошла ошибка обработки запроса');
+    await ctx.reply('⏳ Сервис перегружен. Пожалуйста, попробуйте позже.');
   }
 });
 
