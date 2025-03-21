@@ -5,64 +5,31 @@ const express = require('express')
 const app = express()
 const bot = new Telegraf(process.env.BOT_TOKEN)
 
-// Обработчики бота
-bot.start((ctx) => ctx.replyWithMarkdown(`🎬 *Video Download Bot*\nОтправьте ссылку на видео:`))
-
-bot.command('menu', (ctx) => {
-  ctx.reply('Выберите платформу:', {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: 'TikTok', callback_data: 'tiktok' }, 
-          { text: 'VK', callback_data: 'vk' }
-        ]
-      ]
-    }
-  })
-})
-
-bot.on('callback_query', async (ctx) => {
-  await ctx.answerCbQuery()
-  ctx.reply(`Отправьте ссылку на видео (${ctx.callbackQuery.data.toUpperCase()}):`)
-})
-
-bot.on('text', async (ctx) => {
+// Обработчики
+bot.start(ctx => ctx.reply('Отправьте ссылку на видео TikTok или VK'))
+bot.on('text', async ctx => {
   try {
     const url = ctx.message.text
     let videoUrl
     
-    if (url.includes('tiktok')) {
-      videoUrl = await getTikTok(url)
-    } else if (url.includes('vk.com')) {
-      videoUrl = await getVK(url)
-    } else {
-      return ctx.reply('❌ Неподдерживаемая ссылка!')
+    if(url.includes('tiktok')) {
+      const api = `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(url)}`
+      videoUrl = (await axios.get(api)).data.video.url
+    } 
+    else if(url.includes('vk.com')) {
+      const api = `https://vk-api.ml/download?url=${encodeURIComponent(url)}`
+      videoUrl = (await axios.get(api)).data.url
     }
-
+    
     await ctx.replyWithVideo(videoUrl)
-  } catch (e) {
-    console.error(e)
-    ctx.reply('⚠️ Ошибка загрузки! Попробуйте другую ссылку.')
+  } catch(e) {
+    ctx.reply('Ошибка загрузки')
   }
 })
 
-// Сервисы загрузки
-async function getTikTok(url) {
-  const api = 'https://api.tiktokvideosaver.com/download'
-  const { data } = await axios.post(api, { url })
-  return data.video_url
-}
-
-async function getVK(url) {
-  const { data } = await axios.get(`https://vk-video-downloader.p.rapidapi.com/?url=${url}`, {
-    headers: {
-      'X-RapidAPI-Key': process.env.RAPIDAPI_KEY
-    }
-  })
-  return data.hd || data.sd
-}
-
-// Конфиг для Vercel
+// Для Vercel
 app.use(express.json())
 app.post('/api/bot', (req, res) => bot.handleUpdate(req.body, res))
+app.get('/', (req, res) => res.send('Бот работает!')) // Добавлен GET-обработчик
+
 module.exports = app
