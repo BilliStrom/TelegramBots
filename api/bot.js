@@ -92,7 +92,7 @@ bot.on('text', async (ctx) => {
   }
 
   try {
-    const answers = await model.findAnswers(ctx.message.text, context);
+    const answers = [{ text: "Тестовый ответ" }];
     user.requests++;
     
     const replyText = answers[0]?.text 
