@@ -68,10 +68,9 @@ bot.on('text', async (ctx) => {
         body: JSON.stringify({
           inputs: ctx.message.text,
           parameters: {
-            max_length: 30,
+            max_length: 20, // Уменьшенная длина ответа
             temperature: 0.7,
-            repetition_penalty: 1.5,
-            wait_for_model: true
+            repetition_penalty: 1.5
           }
         }),
         signal: controller.signal
