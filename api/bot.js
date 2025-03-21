@@ -1,13 +1,12 @@
 const { Telegraf, Markup } = require('telegraf');
-const { OpenAI } = require('openai');
+const fetch = require('node-fetch');
 
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const HF_TOKEN = process.env.HF_API_KEY; // Ваш токен Hugging Face
 
-// Хранилище пользователей (временное, для демо)
+// Хранилище пользователей
 const users = new Map();
 
-// Инициализация пользователя
 function initUser(userId) {
   if (!users.has(userId)) {
     users.set(userId, {
@@ -20,50 +19,26 @@ function initUser(userId) {
 
 // Клавиатура
 const menuKeyboard = Markup.keyboard([
-  ['📝 Задать вопрос', '🔄 Сбросить контекст'],
-  ['ℹ️ Помощь', '💳 Купить подписку']
+  ['💬 Задать вопрос', '🔄 Сбросить счетчик'],
+  ['ℹ️ Помощь', '💳 Подписка']
 ]).resize();
 
 bot.start(async (ctx) => {
   const user = initUser(ctx.from.id);
   await ctx.reply(
-    `Привет! Я ChatGPT-бот. У тебя ${15 - user.requests} бесплатных запросов.\n` +
-    'Выбери действие:',
+    `Привет! Я AI-бот. Бесплатных запросов: ${15 - user.requests}`,
     menuKeyboard
   );
 });
 
-bot.hears('📝 Задать вопрос', async (ctx) => {
-  await ctx.reply('Введите ваш вопрос:');
+bot.hears('💬 Задать вопрос', async (ctx) => {
+  await ctx.reply('Напишите ваш вопрос:');
 });
 
-bot.hears('🔄 Сбросить контекст', async (ctx) => {
+bot.hears('🔄 Сбросить счетчик', async (ctx) => {
   const user = initUser(ctx.from.id);
   user.requests = 0;
-  await ctx.reply('Контекст сброшен! Доступно 15 новых запросов.');
-});
-
-bot.hears('ℹ️ Помощь', async (ctx) => {
-  await ctx.reply('Бот использует GPT-3.5. Лимит - 15 запросов/день. Для сброса лимита купите подписку.');
-});
-
-bot.hears('💳 Купить подписку', async (ctx) => {
-  await ctx.reply(
-    'Оплатите подписку:',
-    Markup.inlineKeyboard([
-      Markup.button.url('💳 Купить (500р/мес)', 'https://example.com/pay'),
-      Markup.button.callback('✅ Я оплатил', 'check_payment')
-    ])
-  );
-});
-
-bot.action('check_payment', async (ctx) => {
-  // Здесь должна быть проверка оплаты
-  const user = initUser(ctx.from.id);
-  user.paid = true;
-  user.requests = 0;
-  await ctx.answerCbQuery('Оплата подтверждена!');
-  await ctx.reply('Теперь у вас безлимитный доступ!');
+  await ctx.reply('Счетчик сброшен! Доступно 15 запросов.');
 });
 
 bot.on('text', async (ctx) => {
@@ -75,20 +50,40 @@ bot.on('text', async (ctx) => {
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: ctx.message.text }]
-    });
+    const response = await fetch(
+      'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${HF_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          inputs: ctx.message.text,
+          parameters: {
+            max_length: 200,
+            temperature: 0.9
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+    
+    if (data.error) {
+      await ctx.reply('Ошибка: ' + data.error);
+      return;
+    }
 
     user.requests++;
-    await ctx.reply(response.choices[0].message.content);
+    await ctx.reply(data.generated_text || 'Не удалось получить ответ');
     
     if (!user.paid) {
-      await ctx.reply(`Осталось ${15 - user.requests} бесплатных запросов`);
+      await ctx.reply(`Осталось запросов: ${15 - user.requests}`);
     }
   } catch (error) {
     console.error(error);
-    await ctx.reply('Ошибка обработки запроса');
+    await ctx.reply('Произошла ошибка обработки запроса');
   }
 });
 
