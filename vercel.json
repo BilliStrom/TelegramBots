@@ -1,11 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/api/bot", "destination": "/api/bot.js" }
-  ],
+  "rewrites": [{ "source": "/api/bot", "destination": "/api/bot.js" }],
   "functions": {
     "api/bot.js": {
-      "memory": 3008,
-      "maxDuration": 30
+      "memory": 1024,
+      "maxDuration": 20
     }
   }
 }
