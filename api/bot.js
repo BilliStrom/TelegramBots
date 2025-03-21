@@ -58,12 +58,13 @@ bot.on('text', async (ctx) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          inputs: ctx.message.text,
-          parameters: {
-            max_length: 200,
-            temperature: 0.9
-          }
-        })
+       inputs: "Ваш запрос",
+       parameters: {
+         max_length: 50,  // Уменьшите длину ответа
+         temperature: 0.7,
+         wait_for_model: true // Добавьте это
+       }
+     })
       }
     );
 
