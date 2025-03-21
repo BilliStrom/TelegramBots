@@ -3,10 +3,10 @@ const tf = require('@tensorflow/tfjs-node');
 const qna = require('@tensorflow-models/qna');
 const fs = require('fs').promises;
 
-// Хранилище пользователей (временное, для демо)
+// Хранилище пользователей
 const users = new Map();
 
-// Инициализация модели и контекста
+// Инициализация модели
 let model, context;
 async function initialize() {
   if (!model) {
@@ -14,6 +14,7 @@ async function initialize() {
     await tf.ready();
     model = await qna.load();
     context = await fs.readFile('./public/context.txt', 'utf-8');
+    console.log('Model initialized!');
   }
 }
 
@@ -36,81 +37,79 @@ function initUser(userId) {
   return users.get(userId);
 }
 
-// Команда /start
 bot.start(async (ctx) => {
-  const user = initUser(ctx.from.id);
-  await ctx.reply(
-    `👋 Привет! Ты можешь задать ${15 - user.requests} бесплатных вопросов.`,
-    menuKeyboard
-  );
+  try {
+    await initialize();
+    const user = initUser(ctx.from.id);
+    await ctx.reply(
+      `👋 Привет! Бесплатных вопросов осталось: ${15 - user.requests}`,
+      menuKeyboard
+    );
+  } catch (error) {
+    console.error('Start error:', error);
+    await ctx.reply('🚨 Произошла ошибка при запуске');
+  }
 });
 
-// Обработка кнопки "Мои запросы"
+bot.hears('📝 Задать вопрос', async (ctx) => {
+  await ctx.reply('Напишите ваш вопрос:');
+});
+
 bot.hears('🔄 Мои запросы', async (ctx) => {
   const user = initUser(ctx.from.id);
   await ctx.reply(
-    `📊 Ваша статистика:
-    • Использовано запросов: ${user.requests}
-    • Премиум статус: ${user.isPremium ? 'активен' : 'не активен'}`
+    `📊 Статистика:
+    Запросов: ${user.requests}
+    Статус: ${user.isPremium ? 'Премиум ✅' : 'Базовый ⚠️'}`
   );
 });
 
-// Обработка кнопки "Купить подписку"
 bot.hears('💳 Купить подписку', async (ctx) => {
-  const paymentKeyboard = Markup.inlineKeyboard([
-    Markup.button.url('💳 Оплатить (500₽/мес)', 'https://example.com/pay'),
-    Markup.button.callback('✅ Я оплатил', 'check_payment')
+  const paymentMenu = Markup.inlineKeyboard([
+    Markup.button.url('Оплатить', 'https://example.com/payment'),
+    Markup.button.callback('Проверить оплату', 'check_payment')
   ]);
   
   await ctx.reply(
-    '🎟 Премиум подписка:\n' +
-    '• Безлимитные запросы\n' +
-    '• Приоритетная поддержка',
-    paymentKeyboard
+    '🎁 Премиум подписка:\n' +
+    '- Безлимитные запросы\n' +
+    '- Приоритетная поддержка',
+    paymentMenu
   );
 });
 
-// Проверка оплаты (заглушка)
 bot.action('check_payment', async (ctx) => {
   const user = initUser(ctx.from.id);
-  user.isPremium = true;
+  user.isPremium = true; // Заглушка для демо
   await ctx.answerCbQuery('✅ Оплата подтверждена!');
-  await ctx.reply('🎉 Теперь у вас активен премиум доступ!');
+  await ctx.reply('🎉 Теперь у вас премиум доступ!');
 });
 
-// Обработка вопросов
 bot.on('text', async (ctx) => {
-  await initialize();
-  const user = initUser(ctx.from.id);
-  
-  // Проверка лимита
-  if (!user.isPremium && user.requests >= 15) {
-    return ctx.reply(
-      '🚫 Лимит исчерпан! Купите подписку для продолжения.',
-      Markup.keyboard(['💳 Купить подписку']).resize()
-    );
-  }
-
   try {
-    const answers = [{ text: "Тестовый ответ" }];
+    await initialize();
+    const user = initUser(ctx.from.id);
+    
+    if (!user.isPremium && user.requests >= 15) {
+      return ctx.reply('🚫 Лимит исчерпан! Купите подписку.');
+    }
+
+    const answers = await model.findAnswers(ctx.message.text, context);
     user.requests++;
     
-    const replyText = answers[0]?.text 
+    const reply = answers[0]?.text 
       ? `📝 Ответ: ${answers[0].text}`
-      : '❌ Не могу найти ответ в базе знаний';
+      : '❌ Ответ не найден';
     
-    await ctx.reply(replyText);
+    await ctx.reply(reply);
 
-    // Уведомление о лимите
     if (!user.isPremium && 15 - user.requests <= 3) {
-      await ctx.reply(
-        `⚠️ Осталось ${15 - user.requests} бесплатных запросов!`
-      );
+      await ctx.reply(`⚠️ Осталось ${15 - user.requests} бесплатных запросов!`);
     }
 
   } catch (error) {
-    console.error(error);
-    await ctx.reply('⏳ Произошла ошибка, попробуйте позже');
+    console.error('Error:', error);
+    await ctx.reply('⏳ Произошла ошибка обработки');
   }
 });
 
