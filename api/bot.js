@@ -1,32 +1,11 @@
 const { Telegraf, Markup } = require('telegraf');
-const tf = require('@tensorflow/tfjs-node');
-const qna = require('@tensorflow-models/qna');
-const fs = require('fs').promises;
-
-// Хранилище пользователей
-const users = new Map();
-
-// Инициализация модели
-let model, context;
-async function initialize() {
-  if (!model) {
-    await tf.setBackend('tensorflow');
-    await tf.ready();
-    model = await qna.load();
-    context = await fs.readFile('./public/context.txt', 'utf-8');
-    console.log('Model initialized!');
-  }
-}
 
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
+const GPT_API_URL = 'https://free-unoficial-gpt4o-mini-api-g70n.onrender.com/chat';
 
-// Клавиатура
-const menuKeyboard = Markup.keyboard([
-  ['📝 Задать вопрос', '🔄 Мои запросы'],
-  ['💳 Купить подписку', 'ℹ️ Помощь']
-]).resize();
+// Временное хранилище (для демо)
+const users = new Map();
 
-// Инициализация пользователя
 function initUser(userId) {
   if (!users.has(userId)) {
     users.set(userId, {
@@ -37,43 +16,43 @@ function initUser(userId) {
   return users.get(userId);
 }
 
+// Клавиатура
+const menuKeyboard = Markup.keyboard([
+  ['💬 Задать вопрос', '📊 Статистика'],
+  ['💎 Купить подписку', 'ℹ️ Помощь']
+]).resize();
+
 bot.start(async (ctx) => {
-  try {
-    await initialize();
-    const user = initUser(ctx.from.id);
-    await ctx.reply(
-      `👋 Привет! Бесплатных вопросов осталось: ${15 - user.requests}`,
-      menuKeyboard
-    );
-  } catch (error) {
-    console.error('Start error:', error);
-    await ctx.reply('🚨 Произошла ошибка при запуске');
-  }
-});
-
-bot.hears('📝 Задать вопрос', async (ctx) => {
-  await ctx.reply('Напишите ваш вопрос:');
-});
-
-bot.hears('🔄 Мои запросы', async (ctx) => {
   const user = initUser(ctx.from.id);
   await ctx.reply(
-    `📊 Статистика:
-    Запросов: ${user.requests}
-    Статус: ${user.isPremium ? 'Премиум ✅' : 'Базовый ⚠️'}`
+    `👋 Привет! Бесплатных запросов: ${5 - user.requests}`,
+    menuKeyboard
   );
 });
 
-bot.hears('💳 Купить подписку', async (ctx) => {
+bot.hears('💬 Задать вопрос', async (ctx) => {
+  await ctx.reply('Напишите ваш вопрос:');
+});
+
+bot.hears('📊 Статистика', async (ctx) => {
+  const user = initUser(ctx.from.id);
+  await ctx.reply(
+    `📈 Ваша статистика:
+    Использовано: ${user.requests} запр.
+    Статус: ${user.isPremium ? 'Премиум 🚀' : 'Базовый ⚠️'}`
+  );
+});
+
+bot.hears('💎 Купить подписку', async (ctx) => {
   const paymentMenu = Markup.inlineKeyboard([
-    Markup.button.url('Оплатить', 'https://example.com/payment'),
-    Markup.button.callback('Проверить оплату', 'check_payment')
+    Markup.button.url('💳 Оплатить 299₽', 'https://example.com/payment'),
+    Markup.button.callback('✅ Проверить оплату', 'check_payment')
   ]);
   
   await ctx.reply(
     '🎁 Премиум подписка:\n' +
-    '- Безлимитные запросы\n' +
-    '- Приоритетная поддержка',
+    '• Безлимитные запросы\n' +
+    '• Приоритетная генерация',
     paymentMenu
   );
 });
@@ -86,30 +65,33 @@ bot.action('check_payment', async (ctx) => {
 });
 
 bot.on('text', async (ctx) => {
-  try {
-    await initialize();
-    const user = initUser(ctx.from.id);
-    
-    if (!user.isPremium && user.requests >= 15) {
-      return ctx.reply('🚫 Лимит исчерпан! Купите подписку.');
-    }
+  const user = initUser(ctx.from.id);
+  
+  if (!user.isPremium && user.requests >= 5) {
+    return ctx.reply('🚫 Лимит исчерпан! Купите подписку.');
+  }
 
-    const answers = await model.findAnswers(ctx.message.text, context);
+  try {
+    const response = await fetch(`${GPT_API_URL}/?query=${encodeURIComponent(ctx.message.text)}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      timeout: 15000
+    });
+    
+    if (!response.ok) throw new Error('API Error');
+    
+    const data = await response.json();
     user.requests++;
     
-    const reply = answers[0]?.text 
-      ? `📝 Ответ: ${answers[0].text}`
-      : '❌ Ответ не найден';
+    await ctx.reply(data.response || '🤷 Не удалось получить ответ');
     
-    await ctx.reply(reply);
-
-    if (!user.isPremium && 15 - user.requests <= 3) {
-      await ctx.reply(`⚠️ Осталось ${15 - user.requests} бесплатных запросов!`);
+    if (!user.isPremium && 5 - user.requests <= 2) {
+      await ctx.reply(`⚠️ Осталось ${5 - user.requests} бесплатных запросов!`);
     }
 
   } catch (error) {
     console.error('Error:', error);
-    await ctx.reply('⏳ Произошла ошибка обработки');
+    await ctx.reply('⏳ Сервис временно недоступен');
   }
 });
 
