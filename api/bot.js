@@ -58,7 +58,7 @@ bot.on('text', async (ctx) => {
     const timeout = setTimeout(() => controller.abort(), 9000);
 
     const response = await fetch(
-      const API_URL = 'https://api-inference.huggingface.com/models/EleutherAI/gpt-neo-125M',
+      const API_URL = 'https://api-inference.huggingface.com/models/EleutherAI/gpt-neo-125M';
       {
         method: 'POST',
         headers: {
