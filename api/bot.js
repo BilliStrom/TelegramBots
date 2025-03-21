@@ -50,7 +50,7 @@ bot.on('text', async (ctx) => {
   }
 
   try {
-    const response = await fetch('https://huggingface.co/ai-forever/rugpt3small_based_on_gpt2',
+    const response = await fetch('https://api-inference.huggingface.co/models/ai-forever/rugpt3small_based_on_gpt2',
       {
         method: 'POST',
         headers: {
