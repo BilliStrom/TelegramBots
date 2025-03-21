@@ -3,69 +3,109 @@ const axios = require('axios');
 
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 const GPT_API_URL = 'https://api.gptgod.online/chat';
-const GPT_API_KEY = process.env.GPT_API_KEY;
+const API_KEY = process.env.GPT4FREE_KEY;
 
+// Настройки моделей
+const MODELS = {
+  GPT4: 'gpt-4-all',
+  GPT3: 'gpt-3.5-turbo',
+  CLAUDE: 'claude-1-100k',
+  LLAMA: 'llama-2-70b'
+};
+
+// Хранилище пользователей
 const users = new Map();
 
-const menuKeyboard = Markup.keyboard([
-  ['💬 Задать вопрос', '📊 Статистика'],
-  ['💎 Подписка', 'ℹ️ Помощь']
-]).resize();
-
-// Проверка доступности API
-async function checkAPI() {
-  try {
-    const response = await axios.get(GPT_API_URL, {
-      headers: { Authorization: `Bearer ${GPT_API_KEY}` },
-      timeout: 5000
+// Инициализация пользователя
+function initUser(userId) {
+  if (!users.has(userId)) {
+    users.set(userId, {
+      model: MODELS.GPT3,
+      requests: 0,
+      isPremium: false
     });
-    return response.status === 200;
-  } catch (e) {
-    console.error('API Health Check Failed:', e.message);
-    return false;
   }
+  return users.get(userId);
 }
 
+// Клавиатура
+const mainMenu = Markup.keyboard([
+  ['💬 Задать вопрос', '🛠 Выбрать модель'],
+  ['📊 Статистика', '💳 Премиум']
+]).resize();
+
+// Меню выбора модели
+const modelMenu = Markup.inlineKeyboard([
+  [Markup.button.callback('GPT-4', 'model_gpt4')],
+  [Markup.button.callback('GPT-3.5', 'model_gpt3')],
+  [Markup.button.callback('Claude', 'model_claude')],
+  [Markup.button.callback('Llama', 'model_llama')]
+]);
+
 bot.start(async (ctx) => {
-  users.set(ctx.from.id, { requests: 0, isPremium: false });
-  await ctx.reply('🚀 Бот активирован!', menuKeyboard);
+  const user = initUser(ctx.from.id);
+  await ctx.reply(
+    `🚀 Добро пожаловать! Текущая модель: ${user.model}`,
+    mainMenu
+  );
 });
 
 bot.hears('💬 Задать вопрос', async (ctx) => {
+  await ctx.reply('Введите ваш запрос:');
+});
+
+bot.hears('🛠 Выбрать модель', async (ctx) => {
+  await ctx.reply('Выберите модель:', modelMenu);
+});
+
+bot.action(/model_(.+)/, async (ctx) => {
+  const model = ctx.match[1];
+  const user = initUser(ctx.from.id);
+  user.model = MODELS[model.toUpperCase()];
+  await ctx.answerCbQuery(`Модель изменена на: ${user.model}`);
+  await ctx.reply(`✅ Текущая модель: ${user.model}`);
+});
+
+bot.hears('📊 Статистика', async (ctx) => {
+  const user = initUser(ctx.from.id);
+  await ctx.reply(
+    `📈 Ваша статистика:
+    Модель: ${user.model}
+    Запросов: ${user.requests}
+    Премиум: ${user.isPremium ? '✅' : '❌'}`
+  );
+});
+
+bot.on('text', async (ctx) => {
+  const user = initUser(ctx.from.id);
+  
   try {
-    const user = users.get(ctx.from.id) || { requests: 0 };
-
-    if (!user.isPremium && user.requests >= 15) {
-      return ctx.reply('🚫 Лимит исчерпан! Купите подписку: /premium');
-    }
-
-    // Проверка доступности API
-    if (!(await checkAPI())) {
-      return ctx.reply('🔧 Технические работы. Попробуйте через 5 минут.');
-    }
-
     const response = await axios.post(
       GPT_API_URL,
-      { query: ctx.message.text },
       {
-        headers: { Authorization: `Bearer ${GPT_API_KEY}` },
-        timeout: 20000 // 20 секунд
+        query: ctx.message.text,
+        model: user.model,
+        stream: false
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
       }
     );
 
-    if (!response.data?.response) {
-      throw new Error('Пустой ответ от API');
+    if (response.data?.error) {
+      throw new Error(response.data.error);
     }
 
     user.requests++;
-    users.set(ctx.from.id, user);
-
-    await ctx.reply(response.data.response);
-    await ctx.reply(`📊 Осталось запросов: ${15 - user.requests}`);
+    await ctx.reply(response.data.response || '❌ Ответ не получен');
 
   } catch (error) {
-    console.error('Ошибка:', error.message);
-    await ctx.reply('😞 Не удалось обработать запрос. Попробуйте позже.');
+    console.error('API Error:', error);
+    await ctx.reply('😞 Ошибка обработки запроса. Попробуйте позже');
   }
 });
 
