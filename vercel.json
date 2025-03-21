@@ -6,12 +6,12 @@
   }],
   "routes": [
     {
-      "src": "/api/bot",
+      "src": "/api/webhook",
       "dest": "/api/bot.js",
       "methods": ["POST"]
     },
     {
-      "src": "/",
+      "src": "/(.*)",
       "dest": "/api/bot.js",
       "methods": ["GET"]
     }
