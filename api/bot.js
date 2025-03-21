@@ -83,16 +83,17 @@ bot.on('text', async (ctx) => {
     const response = await axios.post(
       GPT_API_URL,
       {
-        query: ctx.message.text,
-        model: user.model,
-        stream: false
+    query: ctx.message.text,
+    model: user.model,
+    stream: false,
+    temperature: 0.7
       },
       {
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 45000
       }
     );
 
