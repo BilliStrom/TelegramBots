@@ -1,104 +1,67 @@
-const { Telegraf } = require('telegraf');
-const { OpenAI } = require('openai');
+const { Telegraf } = require('telegraf')
+const axios = require('axios')
+const express = require('express')
 
-const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const app = express()
+const bot = new Telegraf(process.env.BOT_TOKEN)
 
-// История диалогов для каждого пользователя
-const conversations = new Map();
+// Меню
+bot.command('start', (ctx) => {
+  return ctx.reply('Выберите платформу:', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'TikTok', callback_data: 'platform_tiktok' }],
+        [{ text: 'VK', callback_data: 'platform_vk' }]
+      ]
+    }
+  })
+})
 
-bot.start((ctx) => {
-  ctx.reply('🤖 Я ChatGPT-бот! Задайте любой вопрос:');
-});
+// Обработка выбора платформы
+bot.action(/platform_(.+)/, async (ctx) => {
+  ctx.session.platform = ctx.match[1]
+  await ctx.deleteMessage()
+  return ctx.reply(`Отправьте ссылку на видео (${ctx.match[1]}):`)
+})
 
-bot.help((ctx) => {
-  ctx.reply([
-    'Команды:',
-    '/new - Начать новый диалог',
-    '/mode [creative/balanced/precise] - Выбрать режим',
-    '/help - Справка'
-  ].join('\n'));
-});
-
-bot.command('new', (ctx) => {
-  conversations.delete(ctx.from.id);
-  ctx.reply('🆕 Новый диалог начат!');
-});
-
-bot.command('mode', (ctx) => {
-  const mode = ctx.message.text.split(' ')[1];
-  const validModes = ['creative', 'balanced', 'precise'];
-  
-  if (validModes.includes(mode)) {
-    const user = conversations.get(ctx.from.id) || {};
-    user.mode = mode;
-    conversations.set(ctx.from.id, user);
-    ctx.reply(`✅ Режим изменен на: ${mode}`);
-  } else {
-    ctx.reply('❌ Неверный режим. Доступные варианты: creative, balanced, precise');
-  }
-});
-
+// Обработка ссылки
 bot.on('text', async (ctx) => {
+  if (!ctx.session.platform) return
+  
   try {
-    const userId = ctx.from.id;
-    const userMessage = ctx.message.text;
-
-    // Получаем историю диалога
-    const conversation = conversations.get(userId) || {
-      messages: [],
-      mode: 'balanced'
-    };
-
-    // Добавляем сообщение пользователя
-    conversation.messages.push({
-      role: 'user',
-      content: userMessage
-    });
-
-    // Настройки генерации по режиму
-    const params = {
-      model: 'gpt-3.5-turbo',
-      messages: conversation.messages,
-      temperature: 0.7, // creative: 1.0, precise: 0.3
-      max_tokens: 1000
-    };
-
-    if (conversation.mode === 'creative') {
-      params.temperature = 1.0;
-      params.top_p = 0.9;
-    } else if (conversation.mode === 'precise') {
-      params.temperature = 0.3;
-      params.top_p = 0.5;
+    const url = ctx.message.text
+    let videoUrl
+    
+    if (ctx.session.platform === 'tiktok') {
+      videoUrl = await getTikTokVideo(url)
+    } else if (ctx.session.platform === 'vk') {
+      videoUrl = await getVkVideo(url)
     }
 
-    // Отправка запроса в OpenAI
-    const response = await openai.chat.completions.create(params);
-    const aiResponse = response.choices[0].message.content;
-
-    // Сохраняем ответ и обрезаем историю
-    conversation.messages.push({
-      role: 'assistant',
-      content: aiResponse
-    });
-
-    if (conversation.messages.length > 6) {
-      conversation.messages = conversation.messages.slice(-4);
-    }
-
-    conversations.set(userId, conversation);
-
-    // Отправляем ответ пользователю
-    await ctx.reply(aiResponse, { parse_mode: 'Markdown' });
-
-  } catch (error) {
-    console.error('OpenAI Error:', error);
-    ctx.reply('⚠️ Произошла ошибка. Попробуйте переформулировать вопрос');
+    await ctx.replyWithVideo(videoUrl)
+  } catch (e) {
+    console.error(e)
+    ctx.reply('Ошибка загрузки. Проверьте ссылку!')
   }
-});
+})
 
-module.exports = async (req, res) => {
-  await bot.handleUpdate(req.body, res);
-};
+// Функции загрузки (пример!)
+async function getTikTokVideo(url) {
+  const api = `https://api.tikdown.app/api/download?url=${encodeURIComponent(url)}`
+  const response = await axios.get(api)
+  return response.data.videoUrl
+}
+
+async function getVkVideo(url) {
+  // Парсинг через неофициальный метод
+  const response = await axios.get(`https://vk-video.vercel.app/api?url=${url}`)
+  return response.data.url
+}
+
+// Для Vercel
+app.use(express.json())
+app.post('/api/webhook', (req, res) => {
+  bot.handleUpdate(req.body, res)
+})
+
+module.exports = app
