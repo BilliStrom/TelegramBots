@@ -58,7 +58,7 @@ bot.on('text', async (ctx) => {
     const timeout = setTimeout(() => controller.abort(), 9000);
 
     const response = await fetch(
-      const API_URL = 'https://api-inference.huggingface.co/models/ai-forever/rugpt3small_based_on_gpt2',
+      const API_URL = 'https://router.huggingface.co/hyperbolic/v1/chat/completions',
       {
         method: 'POST',
         headers: {
