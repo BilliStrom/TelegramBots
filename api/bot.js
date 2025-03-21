@@ -1,17 +1,20 @@
 const { Telegraf } = require('telegraf');
-const tf = require('@tensorflow/tfjs');
+const tf = require('@tensorflow/tfjs-node');
 const qna = require('@tensorflow-models/qna');
 const fs = require('fs').promises;
 
 let model;
 let context;
 
-// Инициализация при первом запросе
 async function initialize() {
   if (!model) {
+    // Инициализация нативного бэкенда
+    await tf.setBackend('tensorflow');
+    await tf.ready();
+    
     model = await qna.load();
     context = await fs.readFile('./public/context.txt', 'utf-8');
-    console.log('Model and context loaded!');
+    console.log('TF.js Node backend initialized!');
   }
 }
 
@@ -23,7 +26,7 @@ module.exports = async (req, res) => {
     
     bot.on('text', async (ctx) => {
       const answers = await model.findAnswers(ctx.message.text, context);
-      ctx.reply(answers[0]?.text || 'Не могу найти ответ 😞');
+      ctx.reply(answers[0]?.text || 'Ответ не найден');
     });
 
     await bot.handleUpdate(req.body, res);
